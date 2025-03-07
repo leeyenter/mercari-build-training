@@ -165,12 +165,7 @@ class Item(BaseModel):
 def get_items_from_database(db: sqlite3.Connection):
     cursor = db.cursor()
     # Query the Items table
-    query = """
-    SELECT items.id, items.name, categories.name AS category, image_name
-    FROM items
-    JOIN categories
-    ON category_id = categories.id
-    """
+    query = """SELECT id, name, category, image_name FROM items"""
     cursor.execute(query)
     rows = cursor.fetchall()
     items_list = [{"id": id, "name": name, "category": category, "image_name": image_name} for id, name, category, image_name in rows]
@@ -182,13 +177,7 @@ def get_items_from_database(db: sqlite3.Connection):
 def get_items_from_database_by_id(id: int, db: sqlite3.Connection) -> Dict[str, List[Dict[str,str]]]:
     cursor = db.cursor()
     # Query the Items table
-    query = """
-    SELECT items.name, categories.name AS category, image_name
-    FROM items
-    JOIN categories
-    ON category_id = categories.id
-    WHERE items.id = ?
-    """
+    query = """SELECT name, category, image_name FROM items WHERE id = ?"""
     cursor.execute(query, (id,))
     rows = cursor.fetchall()
     items_list = [{"name": name, "category": category, "image_name": image_name} for name, category, image_name in rows]
@@ -199,13 +188,7 @@ def get_items_from_database_by_id(id: int, db: sqlite3.Connection) -> Dict[str, 
 
 def search_items(keyword: str, db: sqlite3.Connection) -> Dict[str, List[Dict[str,str]]]:
     cursor = db.cursor()
-    query = """
-    SELECT items.name AS name, categories.name AS category, image_name
-    FROM items
-    JOIN categories
-    ON category_id = categories.id
-    WHERE items.name LIKE ?
-    """
+    query = """SELECT name AS name, category, image_name FROM items WHERE name LIKE ?"""
     pattern = f"%{keyword}%"
     cursor.execute(query, (pattern,))
     rows = cursor.fetchall()
@@ -218,21 +201,8 @@ def search_items(keyword: str, db: sqlite3.Connection) -> Dict[str, List[Dict[st
 # For STEP 5
 def insert_item_db(item: Item, db: sqlite3.Connection) -> int:
     cursor = db.cursor()
-    # Query the category table
-    query_category = "SELECT id FROM categories WHERE name = ?"
-    cursor.execute(query_category, (item.category,))
-    rows = cursor.fetchone()
-    if rows is None:
-        insert_query_category = "INSERT INTO categories (name) VALUES (?)"
-        cursor.execute(insert_query_category, (item.category,))
-        category_id = cursor.lastrowid
-    else:
-        category_id = rows[0]
-
-    query = """
-        INSERT INTO items (name, category_id, image_name) VALUES (?, ?, ?);
-        """
-    cursor.execute(query, (item.name, category_id, item.image))
+    query = """INSERT INTO items (name, category, image_name) VALUES (?, ?, ?)"""
+    cursor.execute(query, (item.name, item.category, item.image))
 
     db.commit()
 
