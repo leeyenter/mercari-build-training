@@ -1,8 +1,17 @@
-FROM alpine
+FROM golang:1.24
 
 RUN addgroup -S mercari && adduser -S trainee -G mercari
-# RUN chown -R trainee:mercari /path/to/db
-
 USER trainee
+WORKDIR /app
 
-CMD ["go", "version"]
+# Install dependencies
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy rest of code
+COPY app ./app
+COPY cmd ./cmd
+RUN CGO_ENABLED=1 go build ./cmd/api
+
+# Run our backend
+CMD ["./api"]
