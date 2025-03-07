@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS items (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, 
-    name TEXT NOT NULL, 
+    id SERIAL PRIMARY KEY, 
+    itemname TEXT NOT NULL, 
     category TEXT NOT NULL,
     image_name TEXT
 );

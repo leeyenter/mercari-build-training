@@ -1,13 +1,12 @@
 package app
 
 import (
-	"database/sql"
+	"context"
 	"errors"
-	"log"
 	"log/slog"
 	"strings"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/jackc/pgx/v5"
 )
 
 var errImageNotFound = errors.New("image not found")
@@ -26,11 +25,11 @@ type ItemRepository interface {
 
 // itemRepository is an implementation of ItemRepository
 type itemRepository struct {
-	db *sql.DB
+	db *pgx.Conn
 }
 
-func seedDB(db *sql.DB) {
-	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS items (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, itemname TEXT, category TEXT, image TEXT)`)
+func seedDB(db *pgx.Conn) {
+	_, err := db.Exec(context.Background(), `CREATE TABLE IF NOT EXISTS items (id SERIAL NOT NULL PRIMARY KEY, itemname TEXT, category TEXT, image TEXT)`)
 	if err != nil {
 		panic(err)
 	}
@@ -38,27 +37,22 @@ func seedDB(db *sql.DB) {
 
 // NewItemRepository creates a new itemRepository.
 func NewItemRepository() ItemRepository {
-	db, err := sql.Open("sqlite3", "db/db.db")
+	conn, err := pgx.Connect(context.Background(), "postgres://postgres:mypassword@localhost:5432/postgres")
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
-	seedDB(db)
+	seedDB(conn)
 
 	//defer db.Close()
-	return &itemRepository{db: db}
+	return &itemRepository{db: conn}
 }
 
 // Insert inserts an item into the repository.
 func (i *itemRepository) Insert(item *Item) error {
-	stmt, err := i.db.Prepare(`INSERT INTO items (itemname, category, image) VALUES (?, ?, ?)`)
+	_, err := i.db.Exec(context.Background(), `INSERT INTO items (itemname, category, image) VALUES ($1, $2, $3)`, item.Name, item.Category, item.Image)
 	if err != nil {
 		slog.Error("Could not prepare statement", err)
-		return err
-	}
-
-	_, err = stmt.Exec(item.Name, item.Category, item.Image)
-	if err != nil {
 		return err
 	}
 
@@ -66,7 +60,7 @@ func (i *itemRepository) Insert(item *Item) error {
 }
 
 func (i *itemRepository) GetAllItems() ([]*Item, error) {
-	rows, err := i.db.Query("SELECT id, itemname, category, image FROM items")
+	rows, err := i.db.Query(context.Background(), "SELECT id, itemname, category, image FROM items")
 	if err != nil {
 		return nil, err
 	}

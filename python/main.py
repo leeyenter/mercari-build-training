@@ -6,25 +6,21 @@ import pathlib
 from fastapi import FastAPI, Form, HTTPException, Depends, UploadFile, File, Query
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-import sqlite3
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from typing import Dict, List
 from PIL import Image, UnidentifiedImageError
-
+import psycopg2
+import psycopg2.extras
 
 # Define the path to the images & sqlite3 database
 images = pathlib.Path(__file__).parent.resolve() / "images"
-db = pathlib.Path(__file__).parent.resolve() / "db" / "mercari.sqlite3"
 
 images.mkdir(exist_ok=True)
 
 def get_db():
-    if not db.exists():
-        yield
+    conn = psycopg2.connect('dbname=postgres user=postgres password=mypassword host=localhost', cursor_factory=psycopg2.extras.RealDictCursor)
 
-    conn = sqlite3.connect(db)
-    conn.row_factory = sqlite3.Row  # Return rows as dictionaries
     try:
         yield conn
     finally:
@@ -50,13 +46,15 @@ def hash_image(image_file: UploadFile) -> str:
 
 # STEP 5-1: set up the database connection
 def setup_database():
-    conn = sqlite3.connect(db)
-    cursor = conn.cursor()
-    sql_file = pathlib.Path(__file__).parent.resolve() / "db" / "items.sql"
-    with open(sql_file, "r") as f:
-        cursor.executescript(f.read())
-    conn.commit()
-    conn.close()
+    conn = psycopg2.connect('dbname=postgres user=postgres password=mypassword host=localhost', cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        sql_file = pathlib.Path(__file__).parent.resolve() / "db" / "items.sql"
+        with open(sql_file, "r") as f:
+            with conn.cursor() as cursor:
+                cursor.execute(f.read())
+        conn.commit()
+    finally:
+        conn.close()
 
 
 @asynccontextmanager
@@ -100,7 +98,7 @@ def add_item(
     name: str = Form(...),
     category: str = Form(...), # For STEP 4-2
     image: UploadFile = File(...), # For STEP 4-4
-    db: sqlite3.Connection = Depends(get_db),
+    db: psycopg2.extensions.connection = Depends(get_db),
 ):
     if not name:
         raise HTTPException(status_code=400, detail="name is required")
@@ -118,7 +116,7 @@ def add_item(
     return AddItemResponse(**{"message": f"item received: {name}"})
 
 @app.get("/items")
-def get_items(db: sqlite3.Connection = Depends(get_db)):
+def get_items(db: psycopg2.extensions.connection = Depends(get_db)):
     # For STEP 4-3
     # all_data = read_json_file()
     # For STEP 5-1
@@ -126,7 +124,7 @@ def get_items(db: sqlite3.Connection = Depends(get_db)):
     return all_data
 
 @app.get("/items/{item_id}")
-def get_item_by_id(item_id: str, db: sqlite3.Connection = Depends(get_db)):
+def get_item_by_id(item_id: str, db: psycopg2.extensions.connection = Depends(get_db)):
     item_id_int = int(item_id)
     # For STEP 4-5
     # all_data = read_json_file()
@@ -151,7 +149,7 @@ async def get_image(image_name):
     return FileResponse(image)
 
 @app.get("/search")
-def search_keyword(keyword: str = Query(...), db: sqlite3.Connection = Depends(get_db)):
+def search_keyword(keyword: str = Query(...), db: psycopg2.extensions.connection = Depends(get_db)):
     search_result = search_items(keyword, db)
     return search_result
 
@@ -162,46 +160,48 @@ class Item(BaseModel):
     image: str
 
 
-def get_items_from_database(db: sqlite3.Connection):
+def parse_rows(rows):
+    print(rows)
+    items_list = [{"id": row["id"], "name": row["itemname"], "category": row["category"], "image_name": row["image"]} for row in rows]
+    return {"items": items_list}
+
+def get_items_from_database(db: psycopg2.extensions.connection):
     cursor = db.cursor()
     # Query the Items table
-    query = """SELECT id, name, category, image_name FROM items"""
+    query = """SELECT id, itemname, category, image FROM items"""
     cursor.execute(query)
     rows = cursor.fetchall()
-    items_list = [{"id": id, "name": name, "category": category, "image_name": image_name} for id, name, category, image_name in rows]
-    result = {"items": items_list}
+    result = parse_rows(rows)
     cursor.close()
 
     return result
 
-def get_items_from_database_by_id(id: int, db: sqlite3.Connection) -> Dict[str, List[Dict[str,str]]]:
+def get_items_from_database_by_id(id: int, db: psycopg2.extensions.connection) -> Dict[str, List[Dict[str,str]]]:
     cursor = db.cursor()
     # Query the Items table
-    query = """SELECT name, category, image_name FROM items WHERE id = ?"""
+    query = """SELECT id, itemname, category, image_name FROM items WHERE id = ?"""
     cursor.execute(query, (id,))
     rows = cursor.fetchall()
-    items_list = [{"name": name, "category": category, "image_name": image_name} for name, category, image_name in rows]
-    result = {"items": items_list}
+    result = parse_rows(rows)
     cursor.close()
 
     return result
 
-def search_items(keyword: str, db: sqlite3.Connection) -> Dict[str, List[Dict[str,str]]]:
+def search_items(keyword: str, db: psycopg2.extensions.connection) -> Dict[str, List[Dict[str,str]]]:
     cursor = db.cursor()
-    query = """SELECT name AS name, category, image_name FROM items WHERE name LIKE ?"""
+    query = """SELECT id, itemname, category, image FROM items WHERE name LIKE ?"""
     pattern = f"%{keyword}%"
     cursor.execute(query, (pattern,))
     rows = cursor.fetchall()
-    items_list = [{"name": name, "category": category, "image_name": image_name} for name, category, image_name in rows]
-    result = {"items": items_list}
+    result = parse_rows(rows)
     cursor.close()
 
     return result
 
 # For STEP 5
-def insert_item_db(item: Item, db: sqlite3.Connection) -> int:
+def insert_item_db(item: Item, db: psycopg2.extensions.connection) -> int:
     cursor = db.cursor()
-    query = """INSERT INTO items (name, category, image_name) VALUES (?, ?, ?)"""
+    query = """INSERT INTO items (itemname, category, image) VALUES (%, %, %)"""
     cursor.execute(query, (item.name, item.category, item.image))
 
     db.commit()
