@@ -53,9 +53,6 @@ export const Listing = ({ onListingCompleted }: Prop) => {
       category: values.category,
       image: values.image,
     })
-      .then(() => {
-        alert('Item listed successfully');
-      })
       .catch((error) => {
         console.error('POST error:', error);
         alert('Failed to list this item');
