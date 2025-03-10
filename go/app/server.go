@@ -33,6 +33,7 @@ func createDirectories(imgDirPath string) {
 // Run is a method to start the server.
 // This method returns 0 if the server started successfully, and 1 otherwise.
 func (s Server) Run() int {
+    createDirectories(s.ImageDirPath)
 
 	// set up logger
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
@@ -49,8 +50,6 @@ func (s Server) Run() int {
 	// set up handlers
 	itemRepo := NewItemRepository()
 	h := &Handlers{imgDirPath: s.ImageDirPath, itemRepo: itemRepo}
-
-	createDirectories(s.ImageDirPath)
 
 	// set up routes
 	mux := http.NewServeMux()
