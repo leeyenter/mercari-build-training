@@ -1,7 +1,5 @@
 FROM golang:1.24
 
-RUN addgroup -S mercari && adduser -S trainee -G mercari
-USER trainee
 WORKDIR /app
 
 # Install dependencies
@@ -12,6 +10,10 @@ RUN go mod download
 COPY app ./app
 COPY cmd ./cmd
 RUN CGO_ENABLED=1 go build ./cmd/api
+
+RUN addgroup --system mercari && adduser --system --ingroup mercari trainee
+RUN chown -R trainee:mercari /app
+USER trainee
 
 # Run our backend
 CMD ["./api"]
