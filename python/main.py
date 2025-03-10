@@ -18,8 +18,18 @@ images = pathlib.Path(__file__).parent.resolve() / "images"
 
 images.mkdir(exist_ok=True)
 
+def get_db_host():
+    if 'DB_HOST' in os.environ:
+        logger.info("Connecting to DB at " + os.environ['DB_HOST'])
+        return os.environ['DB_HOST']
+    else:
+        logger.info("DB_HOST env var not set")
+        return 'localhost'
+
 def get_db():
-    conn = psycopg2.connect('dbname=postgres user=postgres password=mypassword host=localhost', cursor_factory=psycopg2.extras.RealDictCursor)
+    db_host = get_db_host()
+
+    conn = psycopg2.connect('dbname=postgres user=postgres password=mypassword host='+db_host, cursor_factory=psycopg2.extras.RealDictCursor)
 
     try:
         yield conn
@@ -46,7 +56,8 @@ def hash_image(image_file: UploadFile) -> str:
 
 # STEP 5-1: set up the database connection
 def setup_database():
-    conn = psycopg2.connect('dbname=postgres user=postgres password=mypassword host=localhost', cursor_factory=psycopg2.extras.RealDictCursor)
+    db_host = get_db_host()
+    conn = psycopg2.connect('dbname=postgres user=postgres password=mypassword host='+db_host, cursor_factory=psycopg2.extras.RealDictCursor)
     try:
         sql_file = pathlib.Path(__file__).parent.resolve() / "db" / "items.sql"
         with open(sql_file, "r") as f:
@@ -161,7 +172,6 @@ class Item(BaseModel):
 
 
 def parse_rows(rows):
-    print(rows)
     items_list = [{"id": row["id"], "name": row["itemname"], "category": row["category"], "image_name": row["image"]} for row in rows]
     return {"items": items_list}
 

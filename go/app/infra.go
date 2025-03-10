@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"os"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -37,7 +38,12 @@ func seedDB(db *pgx.Conn) {
 
 // NewItemRepository creates a new itemRepository.
 func NewItemRepository() ItemRepository {
-	conn, err := pgx.Connect(context.Background(), "postgres://postgres:mypassword@localhost:5432/postgres")
+	dbHost := os.Getenv("DB_HOST")
+	if dbHost == "" {
+		dbHost = "localhost"
+	}
+
+	conn, err := pgx.Connect(context.Background(), "postgres://postgres:mypassword@"+dbHost+":5432/postgres")
 	if err != nil {
 		panic(err)
 	}
