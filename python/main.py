@@ -211,7 +211,7 @@ def search_items(keyword: str, db: psycopg2.extensions.connection) -> Dict[str, 
 # For STEP 5
 def insert_item_db(item: Item, db: psycopg2.extensions.connection) -> int:
     cursor = db.cursor()
-    query = """INSERT INTO items (itemname, category, image) VALUES (%, %, %)"""
+    query = """INSERT INTO items (itemname, category, image) VALUES (%s, %s, %s)"""
     cursor.execute(query, (item.name, item.category, item.image))
 
     db.commit()
