@@ -19,6 +19,7 @@ services:
       - "9001:9000"
     environment:
       DB_HOST: db
+      FRONT_URL: "http://localhost:3001"
 
   backend-python:
     build: python
@@ -29,3 +30,20 @@ services:
       - "9002:9000"
     environment:
       DB_HOST: db
+      FRONT_URL: "http://localhost:3002"
+
+  frontend1:
+    build:
+      context: typescript/simple-mercari-web
+      args:
+        VITE_BACKEND_URL: "http://localhost:9001"
+    ports:
+      - "3001:3000"
+
+  frontend2:
+    build:
+      context: typescript/simple-mercari-web
+      args:
+        VITE_BACKEND_URL: "http://localhost:9002"
+    ports:
+      - "3002:3000"
