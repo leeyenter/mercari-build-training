@@ -33,7 +33,7 @@ export const ItemList = ({ reload, onLoadCompleted }: Prop) => {
       {items?.map((item) => {
         return (
           <div key={item.id} className="ItemList">
-            <img src={item.image_name ? `${SERVER_URL}/images/${item.image_name}` : PLACEHOLDER_IMAGE} />
+            <img src={item.image_name ? `${SERVER_URL}/images/${item.image_name.replace('images/', '')}` : PLACEHOLDER_IMAGE} />
             <p>
               <span>Name: {item.name}</span>
               <br />
